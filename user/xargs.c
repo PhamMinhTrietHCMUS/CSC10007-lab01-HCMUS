@@ -58,11 +58,14 @@ void xargs_line_handler(int argc, char** xargs_args_list, char* line)
     {
         strcpy(xargs_args_list[argc - 1], tok);
         tok = tokenizer(0x0, ' ');
+        
+
         int pid = fork();
         if(pid == 0)
         {
             exec(xargs_args_list[0], xargs_args_list);
             printf("exec xarg %s failed!\n", xargs_args_list[0]);
+            exit(1);
         }
         else if(pid > 0)
             wait(0);
