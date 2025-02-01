@@ -2,8 +2,8 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
-void seive(int fd) __attribute__((noreturn));
-void seive(int fd)
+void sieve(int fd) __attribute__((noreturn));
+void sieve(int fd)
 {
   int prime;
   if(read(fd, &prime, 4) == 0)
@@ -20,7 +20,7 @@ void seive(int fd)
   {
     close(p[1]);
     close(fd);
-    seive(p[0]);
+    sieve(p[0]);
     close(p[0]);
   }
   else
@@ -39,7 +39,7 @@ void seive(int fd)
   }
 }
 
-int main(int agrc, char* argv[])
+int main(int argc, char* argv[])
 {
   int p[2];
   pipe(p);
@@ -47,7 +47,7 @@ int main(int agrc, char* argv[])
   if(fork() == 0)
   {
     close(p[1]);
-    seive(p[0]);
+    sieve(p[0]);
     close(p[0]);
     exit(0);
   }
