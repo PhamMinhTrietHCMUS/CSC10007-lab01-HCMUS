@@ -95,7 +95,7 @@ int main(int argc, char** argv)
 
     while(1)
     {
-        char piped_in_line[65];
+        char piped_in_line[65] = "";
         gets(piped_in_line, 65);
         if(strlen(piped_in_line) == 0 || !strcmp(piped_in_line, "\n"))
             break;// if the line is just empty, break
