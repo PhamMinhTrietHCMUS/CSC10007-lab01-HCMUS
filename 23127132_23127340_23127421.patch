@@ -1,0 +1,337 @@
+diff --git a/Makefile b/Makefile
+index 74e454f..6934580 100644
+--- a/Makefile
++++ b/Makefile
+@@ -194,6 +194,10 @@ UPROGS=\
+ 	$U/_grind\
+ 	$U/_wc\
+ 	$U/_zombie\
++	$U/_pingpong\
++	$U/_primes\
++	$U/_find\
++	$U/_xargs\
+ 
+ 
+ 
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..6e87919
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1 @@
++# CSC10007-lab01-HCMUS
+\ No newline at end of file
+diff --git a/grade-lab-util b/grade-lab-util
+old mode 100755
+new mode 100644
+diff --git a/user/find.c b/user/find.c
+new file mode 100644
+index 0000000..6aac263
+--- /dev/null
++++ b/user/find.c
+@@ -0,0 +1,71 @@
++#include "../kernel/types.h" // for uint, ushort, etc.
++#include "../kernel/stat.h" // for struct stat
++#include "../kernel/fs.h" // for struct dirent, DIRSIZ, etc.
++#include "../user/user.h" // for system calls like open, read, etc.
++
++void find(char *path, char *name) 
++{
++    char buf[512], *p;  // buffer to store the current path and pointer to traverse it
++    int fd;             // file descriptor
++    struct dirent de;   // directory entry
++    struct stat st;     // file status
++
++    if ((fd = open(path, 0)) < 0)  // openning the directory with read-only mode (0) if it fails the fd will be < 0
++    {
++        fprintf(2, "find: cannot open %s\n", path); 
++        return;
++    }
++
++    if (fstat(fd, &st) < 0)  // get the status of the file 
++    {
++        fprintf(2, "find: cannot stat %s\n", path); 
++        close(fd);
++        return;
++    }
++
++    if (st.type != T_DIR)  // check whether the file is not a directory
++    {
++        close(fd);
++        return;
++    }
++
++    if (strlen(path) + 1 + DIRSIZ + 1 > sizeof(buf)) // check for buffer overflow
++    {
++        fprintf(2, "find: path too long\n");
++        close(fd);
++        return;
++    }
++
++    strcpy(buf, path); 
++    p = buf + strlen(buf);  // move the pointer to the end of the buffer
++    *p++ = '/'; // add a '/' to the end of the buffer
++
++    while (read(fd, &de, sizeof(de)) == sizeof(de)) // read the directory entry
++    {
++        if (de.inum == 0) // skip if empty
++            continue;
++        
++        if (strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0) //skip "." and ".."
++            continue;
++        
++        memmove(p, de.name, DIRSIZ); // copy the name of the directory entry to the buffer (memmove is used to copy files without overlapping memory)
++        p[DIRSIZ] = 0; // null-terminate the string
++
++        if (strcmp(de.name, name) == 0)  // check if the name of the directory entry is the same as the name we are looking for
++            printf("%s\n", buf);
++        
++        find(buf, name);
++    }
++    close(fd);
++}
++
++int main(int argc, char *argv[]) 
++{
++    if (argc != 3) 
++    {
++        printf("Usage: find <path> <name>\n");
++        exit(1);
++    }
++    find(argv[1], argv[2]);
++    exit(0);
++}
+\ No newline at end of file
+diff --git a/user/pingpong.c b/user/pingpong.c
+new file mode 100644
+index 0000000..cd93a31
+--- /dev/null
++++ b/user/pingpong.c
+@@ -0,0 +1,30 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main(int argc, char* argv[])
++{
++    char received;
++    int p[2];
++    pipe(p);
++    int pid = fork();
++
++    if(pid == 0) // children
++    {
++        read(p[0], &received, 1);
++        close(p[0]);
++        printf("%d: ping received\n", getpid());
++        write(p[1], "a", 1);
++        close(p[1]);
++    }
++    else // parent
++    {
++        write(p[1], "b", 1);
++        close(p[1]);
++        wait(0);
++        read(p[0], &received, 1);
++        printf("%d: pong received\n", getpid());
++        close(p[0]);
++    }
++    exit(0);
++}
+diff --git a/user/primes.c b/user/primes.c
+new file mode 100644
+index 0000000..d12f1ed
+--- /dev/null
++++ b/user/primes.c
+@@ -0,0 +1,63 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++void sieve(int fd) __attribute__((noreturn));
++void sieve(int fd)
++{
++  int prime;
++  if(read(fd, &prime, 4) == 0)
++  {
++    close(fd);
++    exit(0);
++  }
++  printf("prime %d\n",prime);
++  int p[2];
++  pipe(p);
++
++  int pid = fork();
++  if(pid == 0)
++  {
++    close(p[1]);
++    close(fd);
++    sieve(p[0]);
++    close(p[0]);
++  }
++  else
++  {
++    close(p[0]);
++    int num;
++    while(read(fd, &num, 4) > 0)
++    {
++      if(num%prime)
++        write(p[1],&num,4);
++    }
++    close(fd);
++    close(p[1]);
++    wait(0);
++    exit(0);
++  }
++}
++
++int main(int argc, char* argv[])
++{
++  int p[2];
++  pipe(p);
++
++  if(fork() == 0)
++  {
++    close(p[1]);
++    sieve(p[0]);
++    close(p[0]);
++    exit(0);
++  }
++  else
++  {
++    close(p[0]);
++    for(int i = 2; i <= 280; i++)
++      write(p[1], &i, 4);
++    close(p[1]);
++    wait(0);
++    exit(0);
++  }
++}
+diff --git a/user/usys.pl b/user/usys.pl
+old mode 100755
+new mode 100644
+diff --git a/user/xargs.c b/user/xargs.c
+new file mode 100644
+index 0000000..3fe50db
+--- /dev/null
++++ b/user/xargs.c
+@@ -0,0 +1,118 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "kernel/param.h"
++#include "user/user.h"
++
++char* tokenizer(char* input, char delim)
++{
++
++    static char* keeper_ptr;
++    char* iteratr;
++    char* res;
++    if(input){
++        iteratr = input;
++        res = input;
++    }
++    else{
++        iteratr = keeper_ptr;
++        res = keeper_ptr;
++    }
++
++    if(*iteratr == '\0')
++        return 0x0;
++
++    int boolean_delim_found = 0;
++    while(1)
++    {
++        if(*iteratr == '\0')
++        {
++            keeper_ptr = iteratr;
++            break;
++        }
++        else if(*iteratr != delim && !boolean_delim_found)
++            iteratr++;
++        else if(*iteratr == delim)
++        {
++            *iteratr = '\0';
++            boolean_delim_found = 1;
++            iteratr++;
++        }
++        else if((*iteratr != delim) && boolean_delim_found)
++        {
++            keeper_ptr = iteratr;
++            break;
++        }
++    }
++    return res;
++}
++
++// the overall idea here is xargs_line_handler will handle each line of input being piped in by whatever comes before the pipe.
++// the 2d array that contains all the commands will be created within main, passed into xargs_line_handler to then be modified by tokenizing the line and affixing it in the second-to-last position.
++// for each token it will call exec once
++// the main function will have a main loop to get all the line and then pass them in to xargs_line_handler
++
++void xargs_line_handler(int argc, char** xargs_args_list, char* line)
++{
++    char* tok = tokenizer(line, ' ');
++    while(tok)
++    {
++        strcpy(xargs_args_list[argc - 1], tok);
++        tok = tokenizer(0x0, ' ');
++        
++
++        int pid = fork();
++        if(pid == 0)
++        {
++            exec(xargs_args_list[0], xargs_args_list);
++            printf("exec xarg %s failed!\n", xargs_args_list[0]);
++            exit(1);
++        }
++        else if(pid > 0)
++            wait(0);
++        else
++            printf("fork failed\n");
++    }
++}
++
++
++
++
++int main(int argc, char** argv)
++{
++    char** xargs_arguments = malloc((argc + 1) * sizeof(char*));
++    memset(xargs_arguments, 0x0, (argc + 1) * sizeof(char*));
++    // this creates an array of char pointers, all set to 0x0
++
++    for(int i = 0; i < argc - 1; i++)
++    {
++        xargs_arguments[i] = malloc(strlen(argv[i + 1]) * sizeof(char));
++        strcpy(xargs_arguments[i], argv[i + 1]);
++    }
++    xargs_arguments[argc - 1] = malloc(65 * sizeof(char));
++    // this builds the xargs_arguments with arguments passed into xargs. for example, xargs echo aa bb cc will result in
++    // [echo] [aa] [bb] [cc] [<empty>] [ptr = 0x0]
++
++
++    while(1)
++    {
++        char piped_in_line[65] = "";
++        gets(piped_in_line, 65);
++        if(strlen(piped_in_line) == 0 || !strcmp(piped_in_line, "\n"))
++            break;// if the line is just empty, break
++        if(piped_in_line[strlen(piped_in_line) - 1] == '\n')
++            piped_in_line[strlen(piped_in_line) - 1] = '\0'; // strips the line of any surplus newline character
++        
++        xargs_line_handler(argc, xargs_arguments, piped_in_line); // run xargs line handler if line isnt empty 
++    }
++
++    for(int i = 0; i < argc + 1; i++)
++    {
++        if(xargs_arguments[i])
++            free(xargs_arguments[i]);
++        else
++            break;
++    }
++
++    free(xargs_arguments);
++    // this frees allocated memory. need i say more?
++}
+\ No newline at end of file
