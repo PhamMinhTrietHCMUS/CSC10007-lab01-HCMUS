@@ -85,18 +85,18 @@ int main(int argc, char** argv)
 
     for(int i = 0; i < argc - 1; i++)
     {
-        xargs_arguments[i] = malloc(strlen(argv[i + 1]) * sizeof(char));
+        xargs_arguments[i] = malloc((strlen(argv[i + 1]) + 1)* sizeof(char));
         strcpy(xargs_arguments[i], argv[i + 1]);
     }
-    xargs_arguments[argc - 1] = malloc(65 * sizeof(char));
+    xargs_arguments[argc - 1] = malloc(129 * sizeof(char));
     // this builds the xargs_arguments with arguments passed into xargs. for example, xargs echo aa bb cc will result in
     // [echo] [aa] [bb] [cc] [<empty>] [ptr = 0x0]
 
 
     while(1)
     {
-        char piped_in_line[65] = "";
-        gets(piped_in_line, 65);
+        char piped_in_line[129] = "";
+        gets(piped_in_line, 129);
         if(strlen(piped_in_line) == 0 || !strcmp(piped_in_line, "\n"))
             break;// if the line is just empty, break
         if(piped_in_line[strlen(piped_in_line) - 1] == '\n')
