@@ -88,17 +88,17 @@ int main(int argc, char** argv)
         xargs_arguments[i] = malloc((strlen(argv[i + 1]) + 1)* sizeof(char));
         strcpy(xargs_arguments[i], argv[i + 1]);
     }
-    xargs_arguments[argc - 1] = malloc(129 * sizeof(char));
+    xargs_arguments[argc - 1] = malloc(512 * sizeof(char));
     // this builds the xargs_arguments with arguments passed into xargs. for example, xargs echo aa bb cc will result in
     // [echo] [aa] [bb] [cc] [<empty>] [ptr = 0x0]
 
 
     while(1)
     {
-        char piped_in_line[129] = "";
-        gets(piped_in_line, 129);
-        if(strlen(piped_in_line) == 0 || !strcmp(piped_in_line, "\n"))
-            break;// if the line is just empty, break
+        char piped_in_line[512] = "";
+        gets(piped_in_line, 512);
+        if(strlen(piped_in_line) == 0)
+            break;// if the line is just empty, break. to exit this loop from the keyboard, do ctrl + D
         if(piped_in_line[strlen(piped_in_line) - 1] == '\n')
             piped_in_line[strlen(piped_in_line) - 1] = '\0'; // strips the line of any surplus newline character
         
